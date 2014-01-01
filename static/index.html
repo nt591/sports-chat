@@ -1,21 +1,121 @@
-<<html>
+<html>
 <head>
+  <style type="text/css">
+    body {
+      padding: 6px;
+      font-size: 11px;
+    }
+
+    input, #chat-history {
+      border: 1px solid #ddd;
+      background-color: #fff;
+    }
+
+    #chat-history {
+      height: 250px;
+      overflow: auto;
+      font-family: 'lucida grande', tahoma, verdana, arial, sans-serif;
+      padding: 15px 15px 0px 15px;
+      margin-bottom: 5px;
+    }
+
+    #chat-history > div {
+      margin: 5px 0px;
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    #chat-history > div.even {
+      background-color: #eee;
+    }
+
+    #chat-history > div.own-message {
+      background-color: #b6ee00;
+    }
+  </style>
   <script type="text/javascript" src="socket.io/socket.io.js"></script>
-
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
   <script type="text/javascript">
+    window.createChatti = (function($) {
+      return function() {
+        var server = null;
 
-    var server = io.connect('http://localhost');
+        var chatti = {
+          init: function(host) {
+            server = io.connect(host || location.href);
 
-    server.emit('message', 'hi there server');
+            server.on('message', chatti.events.onClientMessage);
 
-    server.on('message', function(data) {
-      console.log(data);
+            $('#message').keyup(function(e) {
+              if(e.keyCode === 13) {
+                chatti.events.onTextboxEnter.apply(this, arguments);
+              }
+            }).focus();
+          },
+          views: {
+            message: function(msg) {
+              return $('<div></div>').addClass('client-message').html(msg);
+            }
+          },
+          dom: {
+            appendMessage: function(msg) {
+              var history = $('#chat-history');
+              var message = chatti.views.message(msg).hide();
+
+              history.append(message.fadeIn());
+
+              history.find('.client-message:even').addClass('even');
+              chatti.controls.scrollHistoryDown();
+              return message;
+            }
+          },
+          controls: {
+            scrollHistoryDown: function(){
+              $('#chat-history').animate({
+                scrollTop: $('chat-history').get(0)
+              })
+            }
+          },
+          events: {
+            onClientMessage: function(data) {
+              if($.trim(data.message).length === 0){
+                return;
+              }
+
+              chatti.dom.appendMessage(data.message);
+            },
+            onTextboxEnter: function(e) {
+              var value = $(this).val();
+
+              if(value.length > 0) {
+                chatti.dom.appendMessage(value).addClass('own-message'); 
+                chatti.server.sendMessage(value);
+                $(this).val('');
+              }
+            }
+          },
+          server: {
+            sendMessage: function(msg) {
+              server.emit('message', msg);
+            }
+          }
+        };
+
+        chatti.init.apply(this, arguments);
+
+        return chatti;
+      };
+    })(jQuery);
+
+    $(function(){
+      var chatti = window.createChatti('');
     })
 
   </script>
   <title></title>
 </head>
 <body>
-
+  <div id='chat-history'> </div>
+  <input type='text' id='message' size='50' />
 </body>
 </html>  
